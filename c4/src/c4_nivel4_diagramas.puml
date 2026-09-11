@@ -1,0 +1,26 @@
+@startuml c4_nivel4_diagramas
+TITLE Diagrama de Clases / Estructura Interna - Nivel 4
+
+class AuthController {
+  +login(req, res): Promise<Response>
+}
+
+class CotizacionService {
+  +crearCotizacion(data): Promise<Cotizacion>
+  +generarCodigoCotizacion(): string
+  +calcularIVA(subtotal): number
+}
+
+class CotizacionRepository {
+  +guardar(cotizacion): Promise<void>
+  +obtenerPorId(id): Promise<Cotizacion>
+}
+
+class FacturacionService {
+  +emitirFEL(cotizacionId): Promise<Factura>
+}
+
+AuthController --> CotizacionService
+CotizacionService --> CotizacionRepository
+CotizacionService --> FacturacionService
+@enduml

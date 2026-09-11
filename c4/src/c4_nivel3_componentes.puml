@@ -1,0 +1,24 @@
+@startuml c4_nivel3_componentes
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+LAYOUT_WITH_LEGEND()
+
+Container(webApp, "Single-Page App", "Frontend", "Interfaz de usuario")
+
+Container_Boundary(api, "API REST Giganet") {
+    Component(authCtrl, "AuthController", "Express Router", "Maneja login y generación de JWT (tb_usuarios)")
+    Component(prodCtrl, "ProductosController", "Express Router", "Consulta catálogo e inventario (tb_almacen)")
+    Component(cotiCtrl, "CotizacionesController", "Express Router", "Crea y gestiona cotizaciones (COT-YYYYMMDD-HHMMSS)")
+    Component(factCtrl, "FacturacionController", "Express Router", "Integra certificación FEL con SAT")
+}
+
+ContainerDb(db, "Base de Datos", "SQL", "Tablas del sistema")
+
+Rel(webApp, authCtrl, "POST /auth/login")
+Rel(webApp, prodCtrl, "GET /productos")
+Rel(webApp, cotiCtrl, "POST /cotizaciones")
+Rel(authCtrl, db, "Verifica credenciales")
+Rel(prodCtrl, db, "Lee productos")
+Rel(cotiCtrl, db, "Guarda cotización")
+Rel(cotiCtrl, factCtrl, "Solicita factura")
+@enduml

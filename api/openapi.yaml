@@ -1,0 +1,1062 @@
+openapi: 3.0.3
+info:
+  title: DERCAS - API Sistema de Ventas Giganet
+  description: >
+    API REST para el sistema de gestión comercial de Giganet, S.A. (empresa de
+    telecomunicaciones y tecnología: CCTV, Redes, Telefonía IP). Permite
+    consultar el catálogo de productos y categorías, gestionar el ciclo
+    completo de una cotización: creación desde el carrito, cálculo de IVA,
+    generación del número de cotización (COT-YYYYMMDD-HHMMSS), actualización,
+    cancelación y cambio de estado (aprobada/rechazada); y enviar
+    notificaciones al cliente sobre el estado de su cotización o pedido.
+  version: "1.0"
+  contact:
+    name: Kevin Quinteros - Giganet, S.A.
+    email: soporte@giganet.com
+
+servers:
+  - url: https://api.giganet.com/v1
+    description: Servidor de producción
+  - url: https://api-staging.giganet.com/v1
+    description: Servidor de pruebas (staging)
+
+tags:
+  - name: Autenticación
+    description: Login y generación de token JWT contra tb_usuarios
+  - name: Categorías
+    description: Consulta de categorías de productos (tb_categorias)
+  - name: Productos
+    description: Catálogo e inventario de productos (tb_almacen)
+  - name: Cotizaciones
+    description: Ciclo de vida de una cotización, desde el carrito hasta su aprobación o rechazo
+  - name: Proveedores
+    description: Gestión de proveedores de productos (tb_proveedores) - Hikvisión, Nextlink, Linkbasic
+  - name: Facturación
+    description: >
+      Generación de facturas electrónicas (FEL) a partir de una cotización aprobada.
+      La certificación fiscal es realizada por un Generador/Certificador FEL autorizado
+      por la SAT (servicio externo); esta API actúa como cliente de esa integración.
+  - name: Notificaciones
+    description: Envío de notificaciones al cliente sobre el estado de su cotización o pedido
+
+paths:
+
+  /auth/login:
+    post:
+      tags: [Autenticación]
+      summary: Autenticar usuario y obtener token JWT
+      description: Valida el email y password contra tb_usuarios y devuelve un token JWT para autorizar el resto de operaciones.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Autenticación exitosa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '400':
+          description: Solicitud inválida (campos faltantes)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Email o contraseña incorrectos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /categorias:
+    get:
+      tags: [Categorías]
+      summary: Listar categorías de productos
+      description: Devuelve las categorías registradas en tb_categorias (CCTV, Redes, Telefonía IP).
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Listado de categorías obtenido correctamente
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Categoria'
+        '401':
+          description: Token no proporcionado o inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /productos:
+    get:
+      tags: [Productos]
+      summary: Listar catálogo de productos
+      description: Devuelve los productos registrados en tb_almacen, con su categoría, stock y precios. Base del catálogo digital y del buscador dinámico del carrito.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id_categoria
+          in: query
+          required: false
+          description: Filtra productos por categoría
+          schema:
+            type: integer
+        - name: codigo
+          in: query
+          required: false
+          description: Busca un producto por su código (buscador dinámico del carrito)
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Listado de productos obtenido correctamente
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Producto'
+        '401':
+          description: Token no proporcionado o inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /cotizaciones:
+    post:
+      tags: [Cotizaciones]
+      summary: Generar una nueva cotización desde el carrito
+      description: >
+        Recibe los datos del cliente (nombre, apellido, correo) y los items del carrito.
+        Calcula subtotal, IVA (12%) y total, genera el número de cotización
+        (COT-YYYYMMDD-HHMMSS) y crea el PDF de la cotización con FPDF.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CotizacionRequest'
+      responses:
+        '201':
+          description: Cotización generada exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cotizacion'
+        '400':
+          description: Datos inválidos o carrito vacío
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Token no proporcionado o inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /cotizaciones/{cotizacionId}:
+    get:
+      tags: [Cotizaciones]
+      summary: Consultar el detalle de una cotización
+      description: Devuelve el detalle completo de una cotización, incluyendo sus items, totales y el enlace al PDF generado.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CotizacionIdParam'
+      responses:
+        '200':
+          description: Detalle de la cotización obtenido correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cotizacion'
+        '401':
+          description: Token no proporcionado o inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Cotización no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    put:
+      tags: [Cotizaciones]
+      summary: Actualizar completamente una cotización
+      description: Reemplaza los datos del cliente y los items del carrito de una cotización que aún está pendiente, y recalcula subtotal, IVA y total.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CotizacionIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CotizacionRequest'
+      responses:
+        '200':
+          description: Cotización actualizada correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cotizacion'
+        '400':
+          description: Datos inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Token no proporcionado o inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Cotización no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      tags: [Cotizaciones]
+      summary: Cancelar / eliminar una cotización
+      description: Elimina una cotización que todavía está en estado PENDIENTE (aún no fue enviada, aprobada ni rechazada).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CotizacionIdParam'
+      responses:
+        '200':
+          description: Cotización cancelada correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MensajeConfirmacion'
+        '401':
+          description: Token no proporcionado o inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Cotización no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /cotizaciones/{cotizacionId}/estado:
+    patch:
+      tags: [Cotizaciones]
+      summary: Actualizar el estado de una cotización
+      description: Actualiza parcialmente una cotización, marcándola como APROBADA o RECHAZADA según el ciclo de vida definido (Carrito → Generada/Enviada → Aprobada o Rechazada → Archivada).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CotizacionIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EstadoCotizacionRequest'
+      responses:
+        '200':
+          description: Estado de la cotización actualizado correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cotizacion'
+        '400':
+          description: Estado inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Token no proporcionado o inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Cotización no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /proveedores:
+    get:
+      tags: [Proveedores]
+      summary: Listar proveedores
+      description: Devuelve los proveedores registrados en tb_proveedores (ej. Hikvisión, Nextlink, Linkbasic), usados para asociar el origen del catálogo de productos.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Listado de proveedores obtenido correctamente
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Proveedor'
+        '401':
+          description: Token no proporcionado o inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    post:
+      tags: [Proveedores]
+      summary: Registrar un nuevo proveedor
+      description: Crea un nuevo proveedor en tb_proveedores (ej. Hikvisión, Nextlink, Linkbasic).
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProveedorRequest'
+      responses:
+        '201':
+          description: Proveedor creado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Proveedor'
+        '400':
+          description: Datos inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Token no proporcionado o inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /proveedores/{proveedorId}:
+    put:
+      tags: [Proveedores]
+      summary: Actualizar un proveedor
+      description: Actualiza los datos de contacto o el catálogo mayorista asociado a un proveedor existente.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ProveedorIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProveedorRequest'
+      responses:
+        '200':
+          description: Proveedor actualizado correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Proveedor'
+        '400':
+          description: Datos inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Token no proporcionado o inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Proveedor no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      tags: [Proveedores]
+      summary: Eliminar un proveedor
+      description: Elimina un proveedor de tb_proveedores.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ProveedorIdParam'
+      responses:
+        '200':
+          description: Proveedor eliminado correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MensajeConfirmacion'
+        '401':
+          description: Token no proporcionado o inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Proveedor no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /cotizaciones/{cotizacionId}/factura:
+    post:
+      tags: [Facturación]
+      summary: Generar factura electrónica (FEL) a partir de una cotización aprobada
+      description: >
+        Toma una cotización en estado APROBADA y solicita su certificación como Documento
+        Tributario Electrónico (DTE) al Generador/Certificador FEL autorizado por la SAT
+        (servicio externo, vía su API/WebService). Esta API arma el DTE (datos del cliente,
+        NIT, items, IVA), lo envía al certificador, y persiste la respuesta (UUID, serie,
+        número de autorización) recibida de la SAT.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CotizacionIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FacturaRequest'
+      responses:
+        '201':
+          description: Factura certificada exitosamente ante la SAT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Factura'
+        '400':
+          description: La cotización no está APROBADA o los datos fiscales del cliente son inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Token no proporcionado o inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Cotización no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '502':
+          description: El servicio externo FEL/SAT no respondió o rechazó la certificación
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /facturas/{facturaId}:
+    get:
+      tags: [Facturación]
+      summary: Consultar el detalle de una factura electrónica
+      description: Devuelve los datos de certificación FEL de una factura (UUID, serie, número DTE) junto con el enlace al PDF/XML del DTE.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/FacturaIdParam'
+      responses:
+        '200':
+          description: Detalle de la factura obtenido correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Factura'
+        '401':
+          description: Token no proporcionado o inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Factura no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /notificaciones:
+    post:
+      tags: [Notificaciones]
+      summary: Enviar una notificación al cliente
+      description: Envía al cliente una notificación (correo) sobre el estado de su cotización o pedido, por ejemplo al generarse, aprobarse o rechazarse una cotización.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificacionRequest'
+      responses:
+        '201':
+          description: Notificación enviada exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notificacion'
+        '400':
+          description: Datos inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Token no proporcionado o inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /notificaciones/{cotizacionId}:
+    get:
+      tags: [Notificaciones]
+      summary: Listar notificaciones enviadas de una cotización
+      description: Devuelve el historial de notificaciones enviadas al cliente relacionadas con una cotización o pedido.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CotizacionIdParam'
+      responses:
+        '200':
+          description: Listado de notificaciones obtenido correctamente
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Notificacion'
+        '401':
+          description: Token no proporcionado o inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Cotización no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Token JWT enviado en el encabezado Authorization como "Bearer {token}"
+
+  parameters:
+    CotizacionIdParam:
+      name: cotizacionId
+      in: path
+      required: true
+      description: Identificador único de la cotización
+      schema:
+        type: integer
+
+    ProveedorIdParam:
+      name: proveedorId
+      in: path
+      required: true
+      description: Identificador único del proveedor
+      schema:
+        type: integer
+
+    FacturaIdParam:
+      name: facturaId
+      in: path
+      required: true
+      description: Identificador único de la factura
+      schema:
+        type: integer
+
+  schemas:
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          example: asesor@giganet.com
+        password:
+          type: string
+          format: password
+          example: "Manager1"
+
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        tipo:
+          type: string
+          example: Bearer
+        expiraEn:
+          type: integer
+          description: Tiempo de expiración del token en segundos
+          example: 3600
+
+    Categoria:
+      type: object
+      properties:
+        id_categoria:
+          type: integer
+          example: 1
+        nombre_categoria:
+          type: string
+          enum: [CCTV, Redes, Telefonía IP]
+          example: CCTV
+
+    Producto:
+      type: object
+      properties:
+        id_producto:
+          type: integer
+        codigo:
+          type: string
+          example: "001"
+        nombre:
+          type: string
+          example: Cámara Hikvision 4MP
+        descripcion:
+          type: string
+        categoria:
+          $ref: '#/components/schemas/Categoria'
+        stock:
+          type: integer
+          example: 25
+        stock_minimo:
+          type: integer
+          example: 5
+        stock_maximo:
+          type: integer
+          example: 100
+        precio_compra:
+          type: number
+          format: float
+          example: 45.50
+        precio_venta:
+          type: number
+          format: float
+          example: 65.00
+        imagen:
+          type: string
+          example: camara-hikvision-4mp.jpg
+        fecha_ingreso:
+          type: string
+          format: date
+        proveedor:
+          $ref: '#/components/schemas/Proveedor'
+
+    Proveedor:
+      type: object
+      properties:
+        id_proveedor:
+          type: integer
+          example: 1
+        nombre:
+          type: string
+          enum: [Hikvisión, Nextlink, Linkbasic]
+          example: Hikvisión
+        contacto:
+          type: string
+          example: Ana Martínez
+        telefono:
+          type: string
+          example: "+502 2222-3333"
+        correo:
+          type: string
+          format: email
+          example: ventas@hikvision.com
+        pais_origen:
+          type: string
+          example: China
+        estado:
+          type: string
+          enum: [ACTIVO, INACTIVO]
+          example: ACTIVO
+
+    ProveedorRequest:
+      type: object
+      required: [nombre, contacto, telefono, correo]
+      properties:
+        nombre:
+          type: string
+          enum: [Hikvisión, Nextlink, Linkbasic]
+          example: Nextlink
+        contacto:
+          type: string
+          example: Carlos Pérez
+        telefono:
+          type: string
+          example: "+502 2244-5566"
+        correo:
+          type: string
+          format: email
+          example: contacto@nextlink.com
+        pais_origen:
+          type: string
+          example: Guatemala
+
+    Cliente:
+      type: object
+      required: [nombre, apellido, correo]
+      properties:
+        nombre:
+          type: string
+          example: María
+        apellido:
+          type: string
+          example: López
+        correo:
+          type: string
+          format: email
+          example: maria.lopez@correo.com
+        nit:
+          type: string
+          description: NIT del cliente, requerido por la SAT para certificar la factura FEL. Usar "CF" para Consumidor Final.
+          example: "1234567-8"
+
+    ItemCotizacionRequest:
+      type: object
+      required: [productoId, cantidad]
+      properties:
+        productoId:
+          type: integer
+        cantidad:
+          type: integer
+          minimum: 1
+          example: 2
+
+    CotizacionRequest:
+      type: object
+      required: [cliente, items]
+      properties:
+        cliente:
+          $ref: '#/components/schemas/Cliente'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ItemCotizacionRequest'
+
+    ItemCotizacion:
+      type: object
+      properties:
+        producto:
+          $ref: '#/components/schemas/Producto'
+        cantidad:
+          type: integer
+        precioUnitario:
+          type: number
+          format: float
+        subtotal:
+          type: number
+          format: float
+
+    Cotizacion:
+      type: object
+      properties:
+        id:
+          type: integer
+        numeroCotizacion:
+          type: string
+          description: Formato COT-YYYYMMDD-HHMMSS
+          example: COT-20260522-193722
+        cliente:
+          $ref: '#/components/schemas/Cliente'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ItemCotizacion'
+        subtotal:
+          type: number
+          format: float
+          example: 130.00
+        iva:
+          type: number
+          format: float
+          description: IVA calculado al 12%
+          example: 15.60
+        total:
+          type: number
+          format: float
+          example: 145.60
+        estado:
+          type: string
+          enum: [PENDIENTE, ENVIADA, APROBADA, RECHAZADA, ARCHIVADA]
+        fechaCotizacion:
+          type: string
+          format: date-time
+        fechaVencimiento:
+          type: string
+          format: date
+          description: Fecha de la cotización + 15 días
+        usuarioId:
+          type: integer
+          description: Asesor de ventas que generó la cotización
+        urlPdf:
+          type: string
+          example: /app/almacen/cotizacion.pdf
+
+    EstadoCotizacionRequest:
+      type: object
+      required: [estado]
+      properties:
+        estado:
+          type: string
+          enum: [APROBADA, RECHAZADA]
+          example: APROBADA
+
+    MensajeConfirmacion:
+      type: object
+      properties:
+        mensaje:
+          type: string
+          example: Cotización cancelada correctamente
+
+    FacturaRequest:
+      type: object
+      description: Datos fiscales que se envían al Generador/Certificador FEL (servicio externo de la SAT) para emitir el DTE.
+      required: [nit, direccionFiscal]
+      properties:
+        nit:
+          type: string
+          description: NIT del cliente a facturar ("CF" para Consumidor Final)
+          example: "1234567-8"
+        direccionFiscal:
+          type: string
+          example: 5a Avenida 10-50, Zona 1, Guatemala
+
+    Factura:
+      type: object
+      description: Factura electrónica (DTE) certificada por el Generador FEL autorizado por la SAT.
+      properties:
+        id:
+          type: integer
+        cotizacionId:
+          type: integer
+        serieDte:
+          type: string
+          description: Serie del Documento Tributario Electrónico asignada por el certificador FEL
+          example: A1B2C3D4
+        numeroDte:
+          type: string
+          description: Número correlativo del DTE
+          example: "1024"
+        uuidFel:
+          type: string
+          description: UUID de autorización devuelto por la SAT al certificar el DTE
+          example: 3f9a1c2e-4b5d-6e7f-8a9b-0c1d2e3f4a5b
+        fechaCertificacion:
+          type: string
+          format: date-time
+        nit:
+          type: string
+          example: "1234567-8"
+        total:
+          type: number
+          format: float
+          example: 145.60
+        estado:
+          type: string
+          enum: [CERTIFICADA, RECHAZADA, ANULADA]
+        urlPdf:
+          type: string
+          example: /app/almacen/factura.pdf
+        urlXml:
+          type: string
+          example: /app/almacen/factura.xml
+
+    NotificacionRequest:
+      type: object
+      required: [cotizacionId, tipo, destinatario]
+      properties:
+        cotizacionId:
+          type: integer
+        tipo:
+          type: string
+          enum: [COTIZACION_GENERADA, COTIZACION_APROBADA, COTIZACION_RECHAZADA, FACTURA_CERTIFICADA]
+          example: COTIZACION_APROBADA
+        destinatario:
+          type: string
+          format: email
+          example: maria.lopez@correo.com
+        mensaje:
+          type: string
+          example: Tu cotización COT-20260522-193722 fue aprobada.
+
+    Notificacion:
+      type: object
+      properties:
+        id:
+          type: integer
+        cotizacionId:
+          type: integer
+        tipo:
+          type: string
+          enum: [COTIZACION_GENERADA, COTIZACION_APROBADA, COTIZACION_RECHAZADA, FACTURA_CERTIFICADA]
+        destinatario:
+          type: string
+          format: email
+        mensaje:
+          type: string
+        estado:
+          type: string
+          enum: [ENVIADA, FALLIDA]
+        fechaEnvio:
+          type: string
+          format: date-time
+
+    Error:
+      type: object
+      properties:
+        codigo:
+          type: string
+          example: BAD_REQUEST
+        mensaje:
+          type: string
+          example: El campo 'items' es obligatorio
+        detalles:
+          type: array
+          items:
+            type: string
+
+security:
+  - bearerAuth: []

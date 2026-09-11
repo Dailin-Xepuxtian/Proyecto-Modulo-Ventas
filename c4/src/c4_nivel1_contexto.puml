@@ -1,0 +1,12 @@
+@startuml c4_nivel1_contexto
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+
+LAYOUT_WITH_LEGEND()
+
+Person(cliente, "Cliente / Vendedor", "Usuario que consulta productos y gestiona cotizaciones")
+System(apiGiganet, "API DFRCAS Giganet", "Gestiona autenticación, catálogo, cotizaciones y facturación FEL")
+System_Ext(sat, "SAT / Certificador FEL", "Genera facturas electrónicas de cotizaciones aprobadas")
+
+Rel(cliente, apiGiganet, "Consume endpoints REST", "HTTPS/JSON")
+Rel(apiGiganet, sat, "Envía cotizaciones para certificación", "HTTPS/SOAP/JSON")
+@enduml

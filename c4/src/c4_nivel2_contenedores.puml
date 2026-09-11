@@ -1,0 +1,16 @@
+@startuml c4_nivel2_contenedores
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+LAYOUT_WITH_LEGEND()
+
+Person(usuario, "Usuario", "Cliente o Vendedor")
+Container(webApp, "Aplicación Web / Cliente", "JS, HTML, CSS", "Interfaz para realizar pedidos y consultar catálogo")
+Container(api, "API REST (Backend)", "Node.js / Express", "Procesa lógica de negocio, login JWT y cotizaciones")
+ContainerDb(db, "Base de Datos", "PostgreSQL / MySQL", "Almacena usuarios, almacen, cotizaciones y proveedores")
+System_Ext(sat, "Servicio SAT / FEL", "Certificación de facturas")
+
+Rel(usuario, webApp, "Usa")
+Rel(webApp, api, "Llamadas API REST", "HTTPS/JSON")
+Rel(api, db, "Consulta / Guarda", "SQL")
+Rel(api, sat, "Emite factura", "HTTPS")
+@enduml
