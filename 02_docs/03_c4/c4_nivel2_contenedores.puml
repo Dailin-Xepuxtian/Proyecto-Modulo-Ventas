@@ -1,0 +1,57 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+' Estilo gráfico dibujado a mano (handwritten) como la imagen
+skinparam handwrite true
+skinparam shadowing false
+skinparam defaultFontName "Segoe UI"
+
+' Personalización de colores por tipo de elemento
+skinparam actor {
+    BackgroundColor #FFFFFF
+    BorderColor #2D882D
+    FontColor #2D882D
+}
+
+LAYOUT_WITH_LEGEND()
+
+title Diagrama de Contenedores - Sistema de Ventas y Cotizaciones Giganet (Estilo Visual Personalizado)
+
+' Personas / Usuarios
+Person(asesor, "Asesor de Ventas", "Consulta productos, genera cotizaciones/PDFs y registra pedidos")
+Person(admin, "Administrador", "Gestiona catálogo, stock, usuarios y consulta reportes")
+Person(cliente, "Cliente", "Recibe cotizaciones y comprobantes de compra")
+
+' Sistema Principal y sus Contenedores Internos
+System_Boundary(c1, "Sistema de Ventas y Cotizaciones Giganet") {
+    Container(web_app, "WebApp Ventas (UI)", "PHP, Bootstrap, AdminLTE, JS", "Interfaz web para la gestión del catálogo digital, carrito de cotizaciones, administración y reportes")
+    Container(api_gateway, "Integrador de APIs (Backend)", "PHP / REST Client", "Módulo encargado de orquestar y consumir los servicios y APIs externas")
+    Container(fpdf_module, "Módulo FPDF", "PHP (FPDF Library)", "Genera los documentos PDF de cotizaciones y comprobantes para los clientes")
+    ContainerDb(database, "Base de Datos MySQL", "MySQL Database", "Almacena datos de usuarios (tb_usuarios), categorías (tb_categorias) y productos (tb_almacen)")
+}
+
+' Sistemas Externos (Con colores diferenciados similares a la referencia)
+System_Ext(authService, "Servicio de Autenticación", "Autentica usuarios vía API")
+System_Ext(paymentService, "Servicio de Validación de Pagos", "Valida transacciones de pago vía API")
+System_Ext(felService, "Servicio de Facturación (FEL)", "Genera facturas electrónicas")
+System_Ext(notifService, "Servicio de Notificaciones", "Envía notificaciones de cotización/pedido")
+System_Ext(proveedoresService, "Servicio de Proveedores", "Consulta listas de precios y catálogo mayoristas")
+
+' Relaciones de usuarios con el sistema (Líneas con estilo)
+Rel(asesor, web_app, "Consulta catálogo y registra pedidos", "HTTPS/Web")
+Rel(admin, web_app, "Administra productos y usuarios", "HTTPS/Web")
+Rel(web_app, cliente, "Envía cotizaciones PDF y confirmaciones", "Email / Descarga")
+
+' Relaciones internas entre contenedores
+Rel(web_app, database, "Lee y escribe datos", "PDO/SQL")
+Rel(web_app, fpdf_module, "Solicita generación de PDF", "PHP Internal")
+Rel(web_app, api_gateway, "Delega peticiones externas", "PHP Internal")
+
+' Relaciones del Backend / API Gateway con Servicios Externos
+Rel(api_gateway, authService, "Autentica credenciales", "JSON / HTTPS REST")
+Rel(api_gateway, paymentService, "Valida pagos", "JSON / HTTPS REST")
+Rel(api_gateway, felService, "Certifica facturas", "JSON / HTTPS REST")
+Rel(api_gateway, notifService, "Envía alertas", "JSON / HTTPS REST")
+Rel(api_gateway, proveedoresService, "Consulta catálogo mayorista", "JSON / HTTPS REST")
+
+@enduml

@@ -1,0 +1,33 @@
+@startuml c4_nivel1_contexto
+!include
+
+title Diagrama de Contexto - Sistema de Ventas Giganet (C4 Nivel 1)
+
+' Usuarios (Personas)
+Person(asesor, "ASESOR DE VENTAS", "")
+Person(admin, "ADMINISTRADOR", "")
+Person(cliente, "CLIENTE", "Recibe cotizaciones y comprobantes de compra")
+
+' Sistema Principal
+System(sistemaGiganet, "SISTEMA DE VENTAS Y COTIZACIONES GIGANET", "")
+
+' Sistemas Externos
+System_Ext(auth, "Servicio de Autenticación", "")
+System_Ext(pagos, "Servicio de Validación de Pagos", "")
+System_Ext(fel, "Servicio de Facturación (FEL)", "Servicio externo")
+System_Ext(notif, "Servicio de Notificaciones", "")
+System_Ext(prov, "Servicio de Proveedores", "")
+
+' Relaciones - Usuarios hacia Sistema
+Rel(asesor, sistemaGiganet, "Consulta, genera cotizaciones y registra pedidos")
+Rel(admin, sistemaGiganet, "gestiona catálogo, stock, usuarios y consulta reportes")
+Rel(sistemaGiganet, cliente, "Envía cotizaciones PDF y confirmaciones")
+
+' Relaciones - Sistema hacia Servicios Externos
+Rel(sistemaGiganet, auth, "Autentica usuarios vía API")
+Rel(sistemaGiganet, pagos, "Valida transacciones de pago vía API")
+Rel(sistemaGiganet, fel, "Genera facturas electrónicas")
+Rel(sistemaGiganet, notif, "Envía notificaciones de cotización/pedido")
+Rel(sistemaGiganet, prov, "consulta listas de precios y catálogo mayoristas")
+
+@enduml

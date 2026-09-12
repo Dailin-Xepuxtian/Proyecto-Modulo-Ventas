@@ -1,0 +1,76 @@
+@startuml c4_nivel3_componentes
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+title Diagrama de Componentes (C4 Nivel 3) - Contenedor Aplicación Web / Backend PHP
+
+' Personas / Usuarios
+Person(asesor, "Asesor de Ventas", "Persona", "Consulta catálogo, genera cotizaciones y registra pedidos")
+Person(admin, "Administrador", "Persona", "Gestiona productos, stock, usuarios y reportes")
+Person(cliente, "Cliente", "Persona", "Recibe cotizaciones PDF y comprobantes")
+
+' Contenedor Principal (Límite del Sistema Interno)
+Container_Boundary(appBackend, "Contenedor Aplicación Web & Backend Integrador [PHP, AdminLTE, Bootstrap]") {
+    
+    ' Controladores
+    Component(ctrlAuth, "Controlador de Autenticación y Sesiones", "PHP / Controller", "Gestiona inicio de sesión de usuarios, validación de credenciales y control de roles/permisos.")
+    Component(ctrlCat, "Controlador de Catálogo e Inventario", "PHP / Controller", "Gestiona productos, categorías, imágenes, stock disponible y búsqueda de artículos.")
+    Component(ctrlCot, "Controlador de Cotizaciones y Carrito", "PHP / Controller", "Administra el carrito de compras, cálculo de subtotales/descuentos y emisión/guardado de cotizaciones.")
+    Component(ctrlPed, "Controlador de Pedidos y Facturación", "PHP / Controller", "Procesa pedidos de venta, coordina cobros, solicita certificación FEL y registra transacciones de venta.")
+
+    ' Clientes API Internos y Generador
+    Component(cliAuth, "Cliente API Autenticación", "PHP REST Client", "Consume API externa de auth.")
+    Component(cliPagos, "Cliente API Validación Pagos", "PHP REST Client", "Valida transacciones de pago vía API.")
+    Component(cliFel, "Cliente API Facturación FEL", "PHP REST Client", "Solicita certificación y firmas de facturas.")
+    Component(cliNotif, "Cliente API Notificaciones", "PHP REST Client", "Envía correos/notificaciones con cotizaciones.")
+    Component(pdfGen, "Generador de Documentos PDF", "PHP / FPDF Library", "Construye la plantilla visual y genera los archivos PDF para cotizaciones y comprobantes de pago.")
+
+    ' Capa de Datos Interna
+    Component(dao, "Capa de Acceso a Datos (DAO / PDO)", "PHP / PDO Class", "Abstrae y ejecuta las sentencias SQL (INSERT, SELECT, UPDATE) sobre la base de datos MySQL.")
+}
+
+' Base de Datos
+ContainerDb(db, "Base de Datos MySQL", "Contenedor: MySQL", "Almacena tb_usuarios, tb_categorias, tb_productos, tb_cotizaciones, tb_pedidos, tb_almacen")
+
+' Sistemas Externos
+System_Ext(extAuth, "Servicio de Autenticación", "Sistema Externo\nAutentica usuarios vía API")
+System_Ext(extPagos, "Servicio de Validación de Pagos", "Sistema Externo\nValida transacciones vía API")
+System_Ext(extFel, "Servicio de Facturación (FEL)", "Sistema Externo\nGenera facturas electrónicas")
+System_Ext(extNotif, "Servicio de Notificaciones", "Sistema Externo\nEnvía correos con cotización/pedido")
+System_Ext(extProv, "Servicio de Proveedores", "Sistema Externo\nConsulta listas de precios")
+
+' Relaciones: Usuarios -> Controladores
+Rel(asesor, ctrlAuth, "Inicia sesión / Gestiona roles", "HTTPS")
+Rel(asesor, ctrlCot, "Consulta catálogo, llena carrito y cotiza", "HTTPS")
+Rel(asesor, ctrlPed, "Registra pedidos y facturas", "HTTPS")
+Rel(admin, ctrlAuth, "Gestiona catálogo, stock y usuarios", "HTTPS")
+
+' Relaciones: Controladores -> Clientes API / Servicios / DAO
+Rel(ctrlAuth, cliAuth, "Delega validación")
+Rel(ctrlAuth, dao, "Consulta/Guarda usuarios", "PHP Internal")
+
+Rel(ctrlCat, dao, "CRUD Productos/Categorías", "PHP Internal")
+Rel(ctrlCat, extProv, "", "JSON / HTTPS REST")
+
+Rel(ctrlCot, cliPagos, "Solicita cobro/validación")
+Rel(ctrlCot, cliNotif, "Delega envío de alertas")
+Rel(ctrlCot, pdfGen, "Solicita PDF Cotización")
+Rel(ctrlCot, dao, "Guarda cotizaciones/carrito", "PHP Internal")
+
+Rel(ctrlPed, cliFel, "Solicita certificación")
+Rel(ctrlPed, pdfGen, "Solicita PDF Comprobante")
+Rel(ctrlPed, dao, "Registra ventas y reduce stock", "PHP Internal")
+
+' Relaciones: PDF -> Cliente / Notificaciones
+Rel(pdfGen, cliente, "Envía / Descarga PDF", "Email / HTTP")
+Rel(pdfGen, cliNotif, "")
+
+' Relaciones: Clientes API -> Sistemas Externos
+Rel(cliAuth, extAuth, "", "JSON / HTTPS REST")
+Rel(cliPagos, extPagos, "", "JSON / HTTPS REST")
+Rel(cliFel, extFel, "", "JSON / HTTPS REST")
+Rel(cliNotif, extNotif, "", "JSON / HTTPS REST")
+
+' Relaciones: DAO -> BD
+Rel(dao, db, "Lee y escribe datos", "PDO / SQL")
+
+@endl
