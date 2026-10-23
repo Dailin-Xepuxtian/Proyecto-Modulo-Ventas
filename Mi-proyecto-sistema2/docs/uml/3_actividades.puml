@@ -1,0 +1,67 @@
+@startuml actividades_swimlanes
+title Modulo Ventas - Diagrama de Actividades con calles de responsabilidad
+|Vendedor|
+start
+:Solicita pago-envio de una cotizacion;
+:Selecciona metodo de pago;
+
+|Controlador / Servicio|
+:Recibe la solicitud;
+:Busca la cotizacion;
+if (¿Existe la cotizacion?) then (no)
+  :Responde 404;
+  stop
+else (si)
+endif
+:Verifica permisos del usuario;
+if (¿Tiene permisos?) then (no)
+  :Responde 403;
+  stop
+else (si)
+endif
+if (¿Solicitud Rechazada?) then (si)
+  :Responde 422;
+  stop
+else (no)
+endif
+
+|Base de datos|
+:Consulta documento por id_cotizacion;
+
+|Controlador / Servicio|
+if (¿Ya existe documento?) then (si)
+  :Responde 409;
+  stop
+else (no)
+endif
+
+|ProcesadorPago|
+:Selecciona estrategia de pago;
+if (¿Metodo?) then (Efectivo)
+  :EfectivoStrategy;
+elseif (Referencia) then
+  :ReferenciaBancariaStrategy;
+else (Tarjeta)
+  :TarjetaStrategy;
+  :PasarelaPago (simulacion);
+endif
+:Genera ResultadoPago;
+
+|Controlador / Servicio|
+if (¿Pago aprobado?) then (no)
+  :Responde 400\n(no crea documento de envio);
+  stop
+else (si)
+endif
+
+|Base de datos|
+:Registra pago;
+:Crea documento de envio;
+
+|Controlador / Servicio|
+:Responde 201 Created;
+
+|Vendedor|
+:Recibe confirmacion y documento;
+stop
+@enduml

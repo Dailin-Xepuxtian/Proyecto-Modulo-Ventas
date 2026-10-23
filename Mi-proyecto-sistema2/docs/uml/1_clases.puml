@@ -1,0 +1,133 @@
+@startuml ecommerce_redes_clases
+title Modulo de Ventas Dispositivos de Red - Diagrama de Clases UML
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+hide empty members
+
+class Usuario {
+  + idUsuario: int
+  + email: string
+  + passwordHash: string
+  + estado: boolean
+  + login(): boolean
+  + logout(): void
+  + verificarPermisos(): boolean
+}
+
+class Rol {
+  + idRol: int
+  + nombreRol: string
+  + asignarPermiso(): void
+}
+
+class Permiso {
+  + idPermiso: int
+  + codigo: string
+  + descripcion: string
+}
+
+class Categoria {
+  + idCategoria: int
+  + nombre: string
+  + descripcion: string
+  + listarProductos(): void
+}
+
+class Producto {
+  + codigo: string
+  + nombre: string
+  + marca: string
+  + modelo: string
+  + precio: float
+  + tipoDispositivo: string
+  + actualizarPrecio(): void
+}
+
+class Inventario {
+  + idInventario: int
+  + stockActual: int
+  + stockMinimo: int
+  + verificarStock(): boolean
+  + actualizarStock(cantidad: int): void
+}
+
+class Bodega {
+  + idBodega: int
+  + nombre: string
+  + ubicacion: string
+}
+
+class Cliente {
+  + idCliente: int
+  + razonSocial: string
+  + ruc: string
+  + correo: string
+  + telefono: string
+  + registrar(): void
+  + actualizarPerfil(): void
+}
+
+class Proveedor {
+  + idProveedor: int
+  + nombreEmpresa: string
+  + contacto: string
+  + telefono: string
+  + proveerProductos(): void
+}
+
+class Cotizacion {
+  + idCotizacion: int
+  + fecha: Date
+  + total: float
+  + estado: string
+  + calcularTotal(): float
+  + aprobar(): boolean
+}
+
+class DetalleCotizacion {
+  + cantidad: int
+  + precioUnitario: float
+  + subtotal: float
+  + calcularSubtotal(): float
+}
+
+class Pago {
+  + idPago: int
+  + metodo: string
+  + monto: float
+  + estado: string
+  + procesarPago(): boolean
+  + reembolsar(): boolean
+}
+
+class Envio {
+  + idEnvio: int
+  + empresaTransporte: string
+  + codigoGuia: string
+  + estadoEnvio: string
+  + generarGuia(): void
+  + rastrearEnvio(): string
+}
+
+' --- RELACIONES ---
+
+' Autenticación y seguridad
+Usuario "*" o-- "1" Rol : tiene >
+Rol "*" o-- "*" Permiso : agrupa >
+
+' Catálogo e Inventario
+Categoria "1" *-- "*" ProductoRed : contiene >
+Bodega "1" *-- "*" Inventario : almacena >
+ProductoRed "1" -- "1" Inventario : gestiona stock >
+Proveedor "1" -- "*" ProductoRed : suministra >
+
+' Clientes y Cotizaciones
+Cliente "1" -- "0..*" Cotizacion : solicita >
+Cotizacion "1" *-- "1..*" DetalleCotizacion : compone >
+DetalleCotizacion "*" --> "1" ProductoRed : referencia >
+
+' Pagos y Envíos
+Cotizacion "1" -- "0..1" Pago : se paga con >
+Pago "1" -- "0..1" Envio : genera >
+
+@enduml

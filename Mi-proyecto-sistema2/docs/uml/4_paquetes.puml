@@ -1,0 +1,77 @@
+@startuml ecommerce_redes_paquetes
+title E-commerce de Dispositivos de Red - Diagrama de Paquetes
+skinparam packageStyle rectangle
+left to right direction
+
+package "Presentacion" {
+  [Portal Web Clientes]
+  [Panel de Administracion]
+}
+
+package "Seguridad" {
+  [Control de Usuarios]
+  [Roles y Permisos]
+}
+
+package "Catalogo" {
+  [Gestión de Productos de Red]
+  [Categorías]
+}
+
+package "Inventario" {
+  [Control de Stock]
+  [Bodegas]
+}
+
+package "Clientes" {
+  [Perfiles de Clientes]
+}
+
+package "Proveedores" {
+  [Proveedores de Hardware]
+}
+
+package "Cotizaciones" {
+  [Cotizaciones y Órdenes]
+  [Detalle de Cotización]
+}
+
+package "Pagos" {
+  [Procesador de Pagos]
+  [Pasarela Externa]
+}
+
+package "Envio" {
+  [Documentos de Envío]
+  [Guías de Transporte]
+}
+
+package "Infraestructura" {
+  database "Base de Datos" as BD
+  [Capa de Persistencia / ORM]
+}
+
+' Relaciones principales entre módulos
+[Portal Web Clientes] --> Cotizaciones : <<use>>
+[Portal Web Clientes] --> Catalogo : <<use>>
+[Panel de Administracion] --> Seguridad : <<use>>
+
+Cotizaciones ..> Catalogo : <<use>>
+Cotizaciones ..> Clientes : <<use>>
+Cotizaciones --> Pagos : <<use>>
+Pagos --> Envio : <<triggers>>
+
+Inventario ..> Catalogo : <<updates>>
+Proveedores ..> Catalogo : <<supplies>>
+
+' Dependencias de infraestructura
+Seguridad ..> Infraestructura : <<import>>
+Catalogo ..> Infraestructura : <<import>>
+Inventario ..> Infraestructura : <<import>>
+Clientes ..> Infraestructura : <<import>>
+Proveedores ..> Infraestructura : <<import>>
+Cotizaciones ..> Infraestructura : <<import>>
+Pagos ..> Infraestructura : <<import>>
+Envio ..> Infraestructura : <<import>>
+
+@enduml

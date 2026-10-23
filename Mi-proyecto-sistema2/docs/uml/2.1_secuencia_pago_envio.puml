@@ -1,0 +1,66 @@
+@startuml secuencia_pago_envio
+title Modulo Ventas - Secuencia: Pago y creacion de documento de envio
+autonumber
+actor Vendedor
+participant "PagoEnvioController" as C
+participant "PagoEnvioService" as S
+participant "CotizacionRepository" as CR
+participant "AutorizacionService" as A
+participant "DocumentoEnvioRepository" as DR
+participant "ProcesadorPago" as PP
+participant "EstrategiaPago\n(Efectivo / Referencia / Tarjeta)" as E
+participant "PasarelaPago\n(simulacion)" as PG
+database "BD" as DB
+
+Vendedor -> C : POST /cotizaciones/{id}/pago-envio
+C -> S : ejecutar(id, usuario, solicitud)
+S -> CR : buscarPorId(id)
+CR --> S : cotizacion | null
+
+alt la cotizacion no existe
+  S --> C : CotizacionNoEncontrada
+  C --> Vendedor : 404 Not Found
+else existe
+  S -> A : tienePermiso(usuario, "pago_envio", cotizacion)
+  A --> S : true | false
+  alt sin permisos
+    S --> C : SinPermiso
+    C --> Vendedor : 403 Forbidden
+  else con permisos
+    alt estado = RECHAZADA o CONVERTIDA_A_VENTA
+      S --> C : EstadoNoPermitido
+      C --> Vendedor : 422 Unprocessable Entity
+    else estado valido
+      S -> DR : existePorCotizacion(id_cotizacion)
+      DR -> DB : SELECT ... WHERE id_cotizacion = ?
+      DB --> DR : fila | vacio
+      DR --> S : existe
+      alt ya existe documento
+        S --> C : DocumentoDuplicado
+        C --> Vendedor : 409 Conflict
+      else no existe documento
+        S -> PP : setEstrategia(segun metodo)
+        S -> PP : procesar(monto, datos)
+        PP -> E : pagar(monto, datos)
+        opt metodo = Tarjeta
+          E -> PG : autorizar(datos, monto)
+          PG --> E : ResultadoPago
+        end
+        E --> PP : ResultadoPago
+        PP --> S : ResultadoPago
+        alt pago rechazado (tarjeta)
+          S --> C : PagoRechazado (sin crear documento)
+          C --> Vendedor : 400 Bad Request
+        else pago aprobado
+          S -> DR : crear(documentoEnvio)
+          DR -> DB : INSERT documento_envio
+          DB --> DR : ok
+          DR --> S : documento
+          S --> C : documento
+          C --> Vendedor : 201 Created
+        end
+      end
+    end
+  end
+end
+@enduml
