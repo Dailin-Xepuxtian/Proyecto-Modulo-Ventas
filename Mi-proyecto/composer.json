@@ -1,0 +1,13 @@
+{
+  "name": "giganet/modulo-ventas",
+  "description": "API PHP para el modulo de ventas y cotizaciones de Giganet.",
+  "type": "project",
+  "require": {
+    "php": ">=8.0",
+    "google/cloud-firestore": "^1.54",
+    "kreait/firebase-php": "^7.0"
+  },
+  "config": {
+    "sort-packages": true
+  }
+}
